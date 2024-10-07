@@ -1,0 +1,229 @@
+
+1) ¿Cómo saber cuál es el id de una entidad dada de alta?
+
+   En el create de Customer del Web Service agregar la línea
+
+   Logger.getLogger(WSCustomer.class.getName()).log(Level.SEVERE, "El id del nuevo cliente es {0}", entity.toString());
+   
+   Al agregar un Cliente con el pojo, al revisar el log del servidor buscar "Grave:" como clasificación del evento reportado.
+   
+   -------------------------------------------------------- Código en el cliente pojo ---------------------------------------
+        XMLGregorianCalendar fecha = null;
+        boolean primero            = true;
+        wsprod.Product prod        = new wsprod.Product();
+        wsprod.Category cat        = new wsprod.Category();
+        
+        System.out.println("Son " + count_Product() + " productos");
+        System.out.println("--------------Product.findAll() ----------------------------");
+        java.util.List<wsprod.Product> lisprod = findAll_Product();
+        for(wsprod.Product p:lisprod)
+        {
+            System.out.println(p.getId() + " " + p.getName() + " " + p.getDescription() + " " +
+                    p.getPrice() + " " + p.getLastUpdate() + " Cat:" +
+                    p.getCategoryId().getId() + " " + p.getCategoryId().getName());
+            if(primero)
+            {
+              //cat   = p.getCategoryId(); // se obtiene la categoría
+              cat.setId(p.getCategoryId().getId());
+              cat.setName(p.getCategoryId().getName());
+              fecha = p.getLastUpdate();
+              primero = false;
+            }
+        }
+        int id = 1;
+        System.out.println("-------------------------- id = " + id + " --------------------------");
+        System.out.println("El producto con id " + id + " es:");
+        wsprod.Product p = find_Product(id);
+        System.out.println(p.getId() + " " + p.getName() + " " + p.getDescription() + " " +
+                    p.getPrice() + " " + p.getLastUpdate() + " Cat:" +
+                    p.getCategoryId().getId() + " " + p.getCategoryId().getName());
+        String strByName = "chocolate cookies";
+        System.out.println("------------------ name = " + strByName + " ------------------------");
+        
+        java.util.List<wsprod.Product> prodsName = findByName(strByName);
+        prodsName.forEach((pr) -> {
+            System.out.println(pr.getId() + " " + pr.getName() + " " + pr.getDescription() + " " +
+                    pr.getPrice() + " " + pr.getLastUpdate() + " Cat:" +
+                    pr.getCategoryId().getId() + " " + pr.getCategoryId().getName());
+        });
+           
+        prod.setCategoryId(cat);
+        prod.setId(0);
+        prod.setName("Producto nuevisimo");
+        prod.setDescription("Descripcion del producto fase 3");
+        prod.setPrice(new BigDecimal(55.0));
+
+        // ====================== Fecha ===========================================
+        XMLGregorianCalendar xmlFecha = null;
+        try {
+            xmlFecha = DatatypeFactory.newInstance().newXMLGregorianCalendar(new GregorianCalendar());
+        } catch (DatatypeConfigurationException ex) {
+            Logger.getLogger(NnextPojo.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        // =================== Fin de FECHA ==============================
+        
+        prod.setLastUpdate(  xmlFecha);
+                
+        create_Product(prod);
+     
+        // --------------------------------- Customer --------------------------------  
+        //  NOTA: En caso de entidades relacionadas hay que asignarlas al cliente ----
+        
+        wscust.Customer cust = new wscust.Customer();
+     
+        cust.setCcNumber("ccNumber");
+        cust.setCityRegion("MT");
+        cust.setEmail("rgamboa@itam.mx");
+        cust.setAddress("Rio Hondo 1");
+        cust.setPhone("5556284061");
+        cust.setName("Rafael Gregorio");
+       
+        create_customer(cust);
+		
+ ---------------------- Fin de la porción del código en el cliente -------------------------------
+
+ =============== Cambios en el Web Service para regresar el Id del cliente ===============    
+   En el log se reporta
+   
+   Grave:   El id del nuevo cliente es entidades.Customer[ id=6 ]
+   
+   Con ello, podemos cambiar el método web para que en lugar de ser void regrese un long con el valor del id:
+   NOTA: Se elimina el @Oneway
+   
+   
+    @WebMethod(operationName = "create")
+    //@Oneway
+    public long create(@WebParam(name = "entity") Customer entity) 
+    {
+    
+        ejbRef.create(entity);
+        long idNvoCustomer = entity.getId();
+        Logger.getLogger(WSCustomer.class.getName()).log(Level.SEVERE, "El id del nuevo cliente es {0}", entity.toString());
+        return idNvoCustomer;
+    }
+
+   Y en el cliente cambiar el llamado al create: (actualizar el web service en el cliente)
+   ---------------------------------------  Código en el cliente pojo ------------------------
+    
+        long lngIdCustomer = create_customer(cust);
+ 
+        System.out.println("==================================================");
+        System.out.println("El nuevo cliente tiene clave:" + lngIdCustomer);
+        System.out.println("==================================================");
+        System.out.println("---------------- Customer.findAll() ----------------------------");
+        java.util.List<wscust.Customer> liscust = findAll_Customers();
+        for(wscust.Customer c:liscust)
+        {
+            System.out.println(c.getId() + " " + c.getName() + " " + c.getAddress() + " " +
+                    c.getCcNumber() + " " + c.getCityRegion() + " " + c.getEmail() + " " + c.getPhone());
+        }
+ 
+ ------------------------------------ Fin del código en el cliente pojo -----------------------
+ 
+ 2) Dar de alta un pedido involucra dar de alta en encabezado y posteriormente los items
+ 
+ ----------------------------------- código del cliente pojo ---------------------------------
+         // Se trae el cliente recién creado para crearle un pedido
+        wscust.Customer clte = find_Customer(lngIdCustomer);
+        wspedidoheader.Customer phclte = new wspedidoheader.Customer();
+        phclte.setAddress(clte.getAddress());
+        phclte.setCcNumber(clte.getCcNumber());
+        phclte.setCityRegion(clte.getCityRegion());
+        phclte.setEmail(clte.getEmail());
+        phclte.setId(clte.getId());
+        phclte.setName(clte.getName());
+        phclte.setPhone(clte.getPhone());
+        
+        wsPedidoItems.Customer itclte = new wsPedidoItems.Customer();
+        itclte.setAddress(clte.getAddress());
+        itclte.setCcNumber(clte.getCcNumber());
+        itclte.setCityRegion(clte.getCityRegion());
+        itclte.setEmail(clte.getEmail());
+        itclte.setId(clte.getId());
+        itclte.setName(clte.getName());
+        itclte.setPhone(clte.getPhone());
+        // 
+        // Se crea el encabezado del pedido
+        //
+        wspedidoheader.CustomerOrder oh = new wspedidoheader.CustomerOrder();
+        oh.setCustomerId(phclte);
+        oh.setAmount(new BigDecimal(100.75));
+        oh.setConfirmationNumber(10);
+        oh.setDateCreated(xmlFecha);
+        
+        long lngIdPedidoHeader = create_pedidoHeader(oh);
+        
+        System.out.println(".........................................");
+        System.out.println("Al header le corresponde el no. de pedido " + lngIdPedidoHeader);
+        System.out.println(".........................................");
+        //
+        // se crea el objeto wspedidoitem.customer_order para dar de alta los items
+        //
+        wsPedidoItems.CustomerOrder itco = new wsPedidoItems.CustomerOrder();
+        
+        itco.setAmount(oh.getAmount());
+        itco.setConfirmationNumber(oh.getConfirmationNumber());
+        itco.setCustomerId(itclte);
+        itco.setDateCreated(fecha);
+        itco.setId((int)lngIdPedidoHeader);
+        //
+        // dando de alta los items
+        //
+        //
+        // se forma la lista con el "catalogo" de productos en formato items
+        //
+        java.util.List<wsPedidoItems.Product> lisItProd = new java.util.ArrayList<>();
+        wsPedidoItems.Product itp;
+        wsPedidoItems.Category itcat;
+        for(wsprod.Product pr:lisprod)
+        {
+            itcat = new wsPedidoItems.Category();
+            itcat.setId(pr.getCategoryId().getId());
+            itcat.setName(pr.getCategoryId().getName());
+            
+            itp = new wsPedidoItems.Product();
+            itp.setCategoryId(itcat);
+            itp.setDescription(pr.getDescription());
+            itp.setId(pr.getId());
+            itp.setLastUpdate(pr.getLastUpdate());
+            itp.setName(pr.getName());
+            itp.setPrice(pr.getPrice());
+            
+            lisItProd.add(itp);
+        }
+        
+        wsPedidoItems.OrderedProductPK oppkv; 
+       
+        wsPedidoItems.OrderedProduct item;
+        for ( int k = 0; k <=5; k++)
+        {
+          oppkv = new wsPedidoItems.OrderedProductPK();
+          oppkv.setCustomerOrderId((int)lngIdPedidoHeader);
+          oppkv.setProductId(lisItProd.get(k).getId());  
+          item = new wsPedidoItems.OrderedProduct();
+          item.setOrderedProductPK(oppkv);
+          item.setQuantity((short)5);
+          item.setCustomerOrder(itco);
+          item.setProduct(lisItProd.get(k));
+          create_PedidoItem(item);
+        }
+ 
+        // lista de encabezados de pedidos y lista de items de pedidos
+ 
+        java.util.List<wspedidoheader.CustomerOrder> listaPedidos = findAll_CustomerOrder();
+        java.util.List<wsPedidoItems.OrderedProduct> listaItems   = findAll_OrderedProduct();
+        
+        System.out.println("========= Pedidos =========");
+        for(wspedidoheader.CustomerOrder co:listaPedidos )
+        {
+            System.out.println("pedido no. " + co.getId() + " del Clte No." + co.getCustomerId().getName() + " " + co.getDateCreated() + " por " + co.getAmount());
+        }
+        
+        System.out.println("=========== items ===========");
+        for(wsPedidoItems.OrderedProduct pit: listaItems)
+        {
+            System.out.println("item: Pedido No. " + pit.getCustomerOrder().getId() + " " + pit.getProduct().getDescription() + " cant. " + pit.getQuantity());
+        }
+
+  ------------------------------------------ fin del cliente pojo --------------------------------
+  
